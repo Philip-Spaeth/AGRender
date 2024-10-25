@@ -1,0 +1,33 @@
+# Ignore build directories
+/build/
+
+# Ignore everything in the /Render Programm/Video_Output/ directory
+/Video_Output/*
+
+# Except for convert_bmp_to_video.bat
+!/Video_Output/convert_bmp_to_video.bat
+
+# Ignore binary files
+*.bin
+
+# Ignore Data directory
+/Data/
+
+# Ignore temporary files
+*.tmp
+
+# Ignore object files
+*.obj
+*.o
+
+# Ignore render output files, pictures and videos
+*.png
+*.bmp
+*.jpg
+*.jpeg
+*.avi
+*.mp4
+*.mov
+
+# Ausnahme für .vscode Verzeichnisse
+!/.vscode/
