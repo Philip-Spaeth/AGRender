@@ -199,6 +199,25 @@ void renderVideo()
     
     engine.dFromCenter = distance;
 
+    //ask in wih render mode the video should be rendered
+    std::cout << "\nPlease enter the render mode: " << std::endl;
+    std::cout << "\n Density based rendering: " << std::endl;
+    std::cout << "[1]   all particles" << std::endl;
+    std::cout << "[2]   stars and gas" << std::endl;
+    std::cout << "[3]   stars" << std::endl;
+    std::cout << "[4]   gas" << std::endl;
+    std::cout << "[5]   dark matter" << std::endl;
+    std::cout << "\n Type based rendering: " << std::endl;
+    std::cout << "[6]   all particles" << std::endl;
+    std::cout << "[7]   stars and gas" << std::endl;
+    std::cout << "[8]   stars" << std::endl;
+    std::cout << "[9]   gas" << std::endl;
+    std::cout << "[0]  dark matter" << std::endl;
+
+    int renderMode;
+    std::cin >> renderMode;
+    engine.renderMode = renderMode;
+
 
     while (!glfwWindowShouldClose(engine.window))
     {
