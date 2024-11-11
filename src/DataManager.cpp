@@ -81,10 +81,11 @@ void DataManager::readInfoFile(double& deltaTime, double& timeSteps, double& num
     file.close();
 }
 
-void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>& particles)
+void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>& particles, Engine* eng)
 {
     // Dateiname basierend auf dem Zeitschritt
-    std::string filename = this->path + std::to_string(timeStep) + ".bin";
+    std::string filename = this->path + std::to_string(timeStep) + ".agf";
+    std::cout << filename << std::endl;
     std::ifstream file(filename, std::ios::in | std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "Error opening datafile: " << filename << std::endl;
@@ -95,6 +96,21 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
 
     if (outputDataFormat == "AGF")
     {
+        std::cout << "reading AGF initial condition data ..." << std::endl;
+        // Header auslesen
+        AGFHeader header;
+        file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (!file) {
+            std::cerr << "Fehler: Konnte den AGF-Header nicht lesen!" << std::endl;
+        }
+        // Anzahl der Partikel berechnen
+        unsigned int total_particles = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
+    
+        eng->numOfParticles = total_particles;
+        
+        // Speicherplatz für Partikel reservieren
+        particles.reserve(total_particles);
+
         // AGFE Format: Erweiterte Version (bestehend aus Position, Velocity, Mass, T, P, visualDensity, U, type)
         size_t recordSize = sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int);
 

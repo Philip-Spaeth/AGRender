@@ -38,12 +38,6 @@ using namespace std;
 namespace fs = std::filesystem;
 
 
-//get the DataFolder
-double deltaTime = 1;
-double numOfParticles = 1;
-double numTimeSteps = 1;
-
-
 std::string dataFolder; // Pfad zum Data-Ordner eine Ebene höher
 DataManager dataManager("");
 
@@ -110,11 +104,6 @@ int main()
         return 0;
     }
 
-    dataManager.readInfoFile(deltaTime, numTimeSteps, numOfParticles);
-    //std::cout << "deltaTime: " << deltaTime << std::endl;
-    //std::cout << "numOfParticles: " << numOfParticles << std::endl;
-    //std::cout << "numTimeSteps: " << numTimeSteps << std::endl;
-
     //choose between Rendering a video or liveViewer
     std::cout << "Choose between rendering a video or liveViewer: " << std::endl;
     std::cout << "[1]   Video" << std::endl;
@@ -170,7 +159,7 @@ void renderVideo()
     std::cout << "" << std::endl;
     
     std::vector<std::shared_ptr<Particle>> particles;
-    Engine engine(dataFolder, deltaTime, numOfParticles, numTimeSteps, &particles);
+    Engine engine(dataFolder, 0, 0, 0, &particles);
     engine.RenderLive = false;
 
     if (!engine.init(1.0)) {
@@ -226,12 +215,12 @@ void renderVideo()
         frameTime = currentFrameTime - lastFrameTime;
         lastFrameTime = currentFrameTime;
 
-        dataManager.loadData(counter, particles);
+        dataManager.loadData(counter, particles, &engine);
         engine.isRunning = true;
 
         engine.update(counter);
         
-        if (counter >= numTimeSteps - 1)
+        if (counter >= engine.numTimeSteps  - 1)
         {
             engine.clean();
             glfwTerminate();
@@ -245,14 +234,14 @@ void renderVideo()
 
         if (engine.isRunning)
         {
-            if (counter >= 0 && counter <= numTimeSteps - 1)
+            if (counter >= 0 && counter <= engine.numTimeSteps - 1)
             {
                 counter = counter + engine.playSpeed;
             }
         }
-        if (counter >= numTimeSteps - 1)
+        if (counter >= engine.numTimeSteps - 1)
         {
-            counter = numTimeSteps - 1;
+            counter = engine.numTimeSteps - 1;
             engine.playSpeed = 0;
         }
         if (counter < 0)
@@ -278,7 +267,7 @@ void renderVideo()
             secondCounter = 0.0;
         }
 
-        dataManager.printProgress((double)counter, (double)numTimeSteps, "");
+        dataManager.printProgress((double)counter, (double)engine.numTimeSteps, "");
     }
 
     engine.clean();
@@ -290,16 +279,12 @@ void renderLive()
 {
     std::vector<std::shared_ptr<Particle>> particles;
 
-    Engine engine(dataFolder, deltaTime, numOfParticles, numTimeSteps, &particles);
+    Engine engine(dataFolder, 0, 0, 0, &particles);
 
     if (!engine.init(1.0)) { // Hier muss der physikalische Faktor übergeben werden
         std::cerr << "Engine initialization failed." << std::endl;
         return;
     }
-
-    engine.deltaTime = deltaTime;
-    engine.numOfParticles = numOfParticles;
-    engine.numTimeSteps = numTimeSteps;
 
     engine.renderMode = 1;
 
@@ -338,21 +323,21 @@ void renderLive()
         }
 
         // load particles
-        dataManager.loadData(counter, particles);
+        dataManager.loadData(counter, particles, &engine);
 
         // update particles
         engine.update(counter);
         // add time when engine is running
         if (engine.isRunning)
         {
-            if (counter >= 0 && counter <= numTimeSteps - 1)
+            if (counter >= 0 && counter <= engine.numTimeSteps - 1)
             {
                 counter = counter + engine.playSpeed;
             }
         }
-        if (counter >= numTimeSteps - 1)
+        if (counter >= engine.numTimeSteps - 1)
         {
-            counter = numTimeSteps - 1;
+            counter = engine.numTimeSteps - 1;
             engine.playSpeed = 0;
         }
         if (counter < 0)
