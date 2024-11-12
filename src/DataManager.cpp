@@ -126,116 +126,108 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
     }
     else if (outputDataFormat == "AGFC")
     {
-        // AGFC Format: Kompaktes Format für Rendering
-        // Speichert nur position (vec3 als 3 floats), visualDensity (float) und type (int)
-
-        // Größe eines einzelnen AGFC-Records: 3 floats (Position) + 1 float (visualDensity) + 1 int (type)
-        const size_t recordSize = sizeof(float) * 3 + sizeof(float) + sizeof(int);
-
-        // Bestimme die Größe der Datei
-        file.seekg(0, std::ios::end);
-        std::streampos fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
-
-        if (fileSize % recordSize != 0) {
-            std::cerr << "Invalid AGFC file size: " << filename << std::endl;
-            file.close();
-            return;
+        // Header auslesen
+        AGFHeader header;
+        file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (!file) 
+        {
+            std::cerr << "Fehler: Konnte den AGFE-Header nicht lesen!" << std::endl;
         }
+        // Anzahl der Partikel berechnen
+        unsigned int total_particles = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
+    
+        eng->numOfParticles = total_particles;
+        eng->numTimeSteps = header.endTime / header.deltaTime;
+        eng->deltaTime = header.deltaTime;
+        
+        // Speicherplatz für Partikel reservieren
+        particles.reserve(total_particles);
 
-        size_t numParticles = fileSize / recordSize;
-        particles.reserve(numParticles);
+        // Berechnung der Datenstrukturgröße für jedes Particle
+        size_t particleDataSize = sizeof(float) * 3 + sizeof(float) + sizeof(uint8_t);
 
-        // Optional: Lade die gesamte Datei in einen Puffer (schneller für große Dateien)
-        std::vector<char> buffer(fileSize);
-        file.read(buffer.data(), fileSize);
-        if (file.gcount() != fileSize) {
-            std::cerr << "Error reading datafile: " << filename << std::endl;
-            file.close();
-            return;
-        }
+        // Speicher für das Lesen der Daten allokieren
+        std::vector<char> buffer(total_particles * particleDataSize);
+        file.read(buffer.data(), total_particles * particleDataSize);
 
+        // Zeiger für das Lesen der Partikeldaten initialisieren
         const char* ptr = buffer.data();
-        for (size_t i = 0; i < numParticles; ++i) {
+        for (int i = 0; i < total_particles; i++) {
+            
             auto particle = std::make_shared<Particle>();
 
-            // Position: 3 floats -> konvertiert zu doubles
-            float posX_f, posY_f, posZ_f;
-            memcpy(&posX_f, ptr, sizeof(float)); ptr += sizeof(float);
-            memcpy(&posY_f, ptr, sizeof(float)); ptr += sizeof(float);
-            memcpy(&posZ_f, ptr, sizeof(float)); ptr += sizeof(float);
-            particle->mass = 1.0;
-            particle->position.x = posX_f;
-            particle->position.y = posY_f;
-            particle->position.z = posZ_f;
-            // visualDensity: float -> double
-            float visualDensity_f;
-            memcpy(&visualDensity_f, ptr, sizeof(float)); ptr += sizeof(float);
-            particle->density = static_cast<double>(visualDensity_f);
+            // Position einlesen
+            float posX, posY, posZ;
+            memcpy(&posX, ptr, sizeof(float)); ptr += sizeof(float);
+            memcpy(&posY, ptr, sizeof(float)); ptr += sizeof(float);
+            memcpy(&posZ, ptr, sizeof(float)); ptr += sizeof(float);
+            particle->position = {posX, posY, posZ};
 
-            // type: int
-            memcpy(&particle->type, ptr, sizeof(int)); ptr += sizeof(int);
+            // visualDensity einlesen
+            float visualDensity;
+            memcpy(&visualDensity, ptr, sizeof(float)); ptr += sizeof(float);
+            particle->density = visualDensity;
+
+            // type einlesen
+            memcpy(&particle->type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
 
             particles.push_back(particle);
         }
     }
     else if (outputDataFormat == "AGFE")
     {
-        // AGFE Format: Erweiterte Version (bestehend aus Position, Velocity, Mass, T, P, visualDensity, U, type)
-        size_t recordSize = sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(int);
-
-        // Bestimme die Größe der Datei
-        file.seekg(0, std::ios::end);
-        std::streampos fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
-
-        if (fileSize % recordSize != 0) {
-            std::cerr << "Invalid AGFE file size: " << filename << std::endl;
-            file.close();
-            return;
+        // Header auslesen
+        AGFHeader header;
+        file.read(reinterpret_cast<char*>(&header), sizeof(header));
+        if (!file) 
+        {
+            std::cerr << "Fehler: Konnte den AGFE-Header nicht lesen!" << std::endl;
         }
+        // Anzahl der Partikel berechnen
+        unsigned int total_particles = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
+    
+        eng->numOfParticles = total_particles;
+        eng->numTimeSteps = header.endTime / header.deltaTime;
+        eng->deltaTime = header.deltaTime;
+        
+        // Speicherplatz für Partikel reservieren
+        particles.reserve(total_particles);
 
-        size_t numParticles = fileSize / recordSize;
-        particles.reserve(numParticles);
+        size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
+        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t));
 
-        // Optional: Lade die gesamte Datei in einen Puffer (schneller für große Dateien)
-        std::vector<char> buffer(fileSize);
-        file.read(buffer.data(), fileSize);
-        if (file.gcount() != fileSize) {
-            std::cerr << "Error reading datafile: " << filename << std::endl;
-            file.close();
-            return;
-        }
+        // Speicher für den Puffer allokieren
+        char* buffer = reinterpret_cast<char*>(malloc(totalSize));
+        if (buffer) 
+        {
+            file.read(buffer, totalSize);
+            char* ptr = buffer;
 
-        const char* ptr = buffer.data();
-        for (size_t i = 0; i < numParticles; ++i) {
-            auto particle = std::make_shared<Particle>();
+            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t)); i++) {
+                vec3 position, velocity;
+                double mass, T, P, visualDensity, U;
+                uint8_t type;
 
-            // Position: vec3 (3 doubles)
-            memcpy(&particle->position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                memcpy(&position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                memcpy(&velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                memcpy(&mass, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&T, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&P, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&visualDensity, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&U, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
 
-            // Velocity: vec3 (3 doubles) - wird nicht im AGFC geladen, aber hier für AGFE
-            memcpy(&particle->velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                auto particle = std::make_shared<Particle>();
+                particle->position = position;
+                particle->velocity = velocity;
+                particle->mass = mass;
+                particle->temperature = T;
+                particle->density = visualDensity;
+                particle->type = type;
 
-            // Mass: double
-            memcpy(&particle->mass, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // T: double
-            memcpy(&particle->temperature, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // P: double
-            memcpy(&particle->pressure, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // visualDensity: double
-            memcpy(&particle->density, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // U: double
-            memcpy(&particle->internalEnergy, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // type: int
-            memcpy(&particle->type, ptr, sizeof(int)); ptr += sizeof(int);
-
-            particles.push_back(particle);
+                particles.push_back(particle);
+            }
+            free(buffer);
         }
     }
     else
