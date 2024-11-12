@@ -16,6 +16,8 @@ public:
     vec3 acceleration;
     double mass;
 
+    unsigned int id;
+
     // Fluid properties (SPH)
     double density;
     double pressure;
