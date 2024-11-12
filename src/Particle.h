@@ -21,7 +21,7 @@ public:
     double pressure;
     double temperature;
     double viscosity;
-    bool type = 1; // 1 = star, 2 = gas, 3 = dark matter
+    uint8_t type = 1; // 1 = star, 2 = gas, 3 = dark matter
 
     // Energy properties
     double internalEnergy;

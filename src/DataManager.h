@@ -16,8 +16,6 @@ public:
     std::string path;    
     std::string outputDataFormat;
 
-
-    void readInfoFile(double& deltaTime, double& timeSteps, double& numberOfParticles);
     void loadData(int timeStep, std::vector<std::shared_ptr<Particle>>& particles, Engine* eng);
 
     void printProgress(double currentStep, double steps, std::string text);

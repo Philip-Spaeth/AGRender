@@ -38,7 +38,7 @@ using namespace std;
 namespace fs = std::filesystem;
 
 
-std::string dataFolder; // Pfad zum Data-Ordner eine Ebene höher
+std::string dataFolder = "empty"; // Pfad zum Data-Ordner eine Ebene höher
 DataManager dataManager("");
 
 void renderLive();
@@ -73,6 +73,10 @@ int main()
     int i = 1;
     for (const auto& entry : fs::directory_iterator("../../output_data/"))
     {
+        if(entry.path().filename() == ".gitkeep") 
+        {
+            continue;
+        }
         std::cout << "["<< i << "]   " << entry.path().filename() << std::endl;
         i++;
     }
@@ -85,23 +89,14 @@ int main()
     i = 1;
     for (const auto& entry : fs::directory_iterator("../../output_data/"))
     {
+        if(entry.path().filename() == ".gitkeep") continue;	
         if (i == folderIndex)
         {
             dataFolder = entry.path().string() + "/";
+            dataManager.path = dataFolder;
             break;
         }
         i++;
-    }
-
-    cout << endl;
-
-    dataManager.path = dataFolder;
-
-    std::string filename = dataManager.path + "info.txt";
-    std::ifstream file(filename);
-    if (!file) {
-        std::cerr << "Could not open the file!" << std::endl;
-        return 0;
     }
 
     //choose between Rendering a video or liveViewer
@@ -323,6 +318,7 @@ void renderLive()
         }
 
         // load particles
+        dataManager.path = dataFolder;
         dataManager.loadData(counter, particles, &engine);
 
         // update particles

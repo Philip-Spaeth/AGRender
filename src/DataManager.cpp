@@ -24,68 +24,45 @@ DataManager::~DataManager()
 {
 }
 
-
-void DataManager::readInfoFile(double& deltaTime, double& timeSteps, double& numberOfParticles)
-{
-    std::string line;
-    std::string filename = this->path + "info.txt";
-    std::ifstream file(filename);
-
-    // Read deltaTime from the first line
-    if (std::getline(file, line)) {
-        std::istringstream iss(line);
-        if (!(iss >> deltaTime)) {
-            std::cerr << "Error reading deltaTime from line: " << line << std::endl;
-            return;
-        }
-    } else {
-        std::cerr << "Error reading the first line for deltaTime" << std::endl;
-        return;
-    }
-
-    // Read timeSteps from the second line
-    if (std::getline(file, line)) {
-        std::istringstream iss(line);
-        if (!(iss >> timeSteps)) {
-            std::cerr << "Error reading timeSteps from line: " << line << std::endl;
-            return;
-        }
-    } else {
-        std::cerr << "Error reading the second line for timeSteps" << std::endl;
-        return;
-    }
-
-    // Read numberOfParticles from the third line
-    if (std::getline(file, line)) {
-        std::istringstream iss(line);
-        if (!(iss >> numberOfParticles)) {
-            std::cerr << "Error reading numberOfParticles from line: " << line << std::endl;
-            return;
-        }
-    } else {
-        std::cerr << "Error reading the third line for numberOfParticles" << std::endl;
-        return;
-    }
-    
-    //read the outputDataFormat from the 4th line
-    if (std::getline(file, line)) {
-        outputDataFormat = line;
-    } else {
-        std::cerr << "Error reading the fourth line for outputDataFormat" << std::endl;
-        return;
-    }
-    //romve the last character from the outputDataFormat
-    outputDataFormat.pop_back();
-
-
-    file.close();
-}
-
 void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>& particles, Engine* eng)
 {
-    // Dateiname basierend auf dem Zeitschritt
-    std::string filename = this->path + std::to_string(timeStep) + ".agf";
-    std::cout << filename << std::endl;
+
+    std::string filename = this->path + std::to_string(timeStep);
+    std::string ending = ".agf";
+    try
+    {
+        ending = ".agf";
+        outputDataFormat = "AGF";
+        std::ifstream file(filename + ending);
+        if (!file)
+        {
+            ending = ".agfc";
+            outputDataFormat = "AGFC";
+            file = std::ifstream
+            (filename + ending);
+            if (!file)
+            {
+                ending = ".agfe";
+                outputDataFormat = "AGFE";
+                file = std::ifstream
+                (filename + ending);
+                if (!file)
+                {
+                    std::cerr << "Error opening datafile: " << filename << std::endl;
+                    return;
+                }
+            }
+        }
+        file.close();
+    }
+    catch (const std::exception&)
+    {
+        std::cerr << "Error opening datafile: " << filename << std::endl;
+        return;
+    }
+
+    filename = filename + ending;
+
     std::ifstream file(filename, std::ios::in | std::ios::binary);
     if (!file.is_open()) {
         std::cerr << "Error opening datafile: " << filename << std::endl;
@@ -96,70 +73,55 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
 
     if (outputDataFormat == "AGF")
     {
-        std::cout << "reading AGF initial condition data ..." << std::endl;
         // Header auslesen
         AGFHeader header;
         file.read(reinterpret_cast<char*>(&header), sizeof(header));
-        if (!file) {
+        if (!file) 
+        {
             std::cerr << "Fehler: Konnte den AGF-Header nicht lesen!" << std::endl;
         }
         // Anzahl der Partikel berechnen
         unsigned int total_particles = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
     
         eng->numOfParticles = total_particles;
+        eng->numTimeSteps = header.endTime / header.deltaTime;
+        eng->deltaTime = header.deltaTime;
         
         // Speicherplatz für Partikel reservieren
         particles.reserve(total_particles);
 
-        // AGFE Format: Erweiterte Version (bestehend aus Position, Velocity, Mass, T, P, visualDensity, U, type)
-        size_t recordSize = sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int);
+        size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
+        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int));
 
-        // Bestimme die Größe der Datei
-        file.seekg(0, std::ios::end);
-        std::streampos fileSize = file.tellg();
-        file.seekg(0, std::ios::beg);
+        // Speicher für den Puffer allokieren
+        char* buffer = reinterpret_cast<char*>(malloc(totalSize));
+        if (buffer) {
+            file.read(buffer, totalSize);
+            char* ptr = buffer;
 
-        if (fileSize % recordSize != 0) {
-            std::cerr << "Invalid AGF file size: " << filename << std::endl;
-            file.close();
-            return;
-        }
+            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(uint8_t)); i++) {
+                vec3 position, velocity;
+                double mass, T, visualDensity;
+                int type;
 
-        size_t numParticles = fileSize / recordSize;
-        particles.reserve(numParticles);
+                memcpy(&position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                memcpy(&velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
+                memcpy(&mass, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&T, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&visualDensity, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
 
-        // Optional: Lade die gesamte Datei in einen Puffer (schneller für große Dateien)
-        std::vector<char> buffer(fileSize);
-        file.read(buffer.data(), fileSize);
-        if (file.gcount() != fileSize) {
-            std::cerr << "Error reading datafile: " << filename << std::endl;
-            file.close();
-            return;
-        }
+                auto particle = std::make_shared<Particle>();
+                particle->position = position;
+                particle->velocity = velocity;
+                particle->mass = mass;
+                particle->temperature = T;
+                particle->density = visualDensity;
+                particle->type = type;
 
-        const char* ptr = buffer.data();
-        for (size_t i = 0; i < numParticles; ++i) {
-            auto particle = std::make_shared<Particle>();
-
-            // Position: vec3 (3 doubles)
-            memcpy(&particle->position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
-
-            // Velocity: vec3 (3 doubles) - wird nicht im AGFC geladen, aber hier für AGFE
-            memcpy(&particle->velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
-
-            // Mass: double
-            memcpy(&particle->mass, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // T: double
-            memcpy(&particle->temperature, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // visualDensity: double
-            memcpy(&particle->density, ptr, sizeof(double)); ptr += sizeof(double);
-
-            // type: int
-            memcpy(&particle->type, ptr, sizeof(int)); ptr += sizeof(int);
-
-            particles.push_back(particle);
+                particles.push_back(particle);
+            }
+            free(buffer);
         }
     }
     else if (outputDataFormat == "AGFC")
