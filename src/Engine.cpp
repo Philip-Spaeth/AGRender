@@ -439,15 +439,15 @@ void Engine::renderParticles()
 
     for (const auto& particle : *particles)
     {
-        if(particle->type == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
+        if(particle->galaxyPart == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
         {
             continue;
         } 
-        if (particle->type == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
+        if (particle->galaxyPart == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
         {
             continue;
         }
-        if(particle->type == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
+        if(particle->galaxyPart == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
         {
             continue;
         }
@@ -475,15 +475,15 @@ void Engine::renderParticles()
         }
         else
         {
-            if(particle->type == 1)
+            if(particle->galaxyPart == 1)
             {
                 color = vec3(1, 0, 0);
             }
-            if(particle->type == 2)
+            if(particle->galaxyPart == 2)
             {
                 color = vec3(0, 1, 0);
             }
-            if(particle->type == 3)
+            if(particle->galaxyPart == 3)
             {
                 color = vec3(0, 0, 1);
             }

@@ -16,7 +16,7 @@ public:
     vec3 acceleration;
     double mass;
 
-    unsigned int id;
+    uint8_t id;
 
     // Fluid properties (SPH)
     double density;
@@ -24,6 +24,7 @@ public:
     double temperature;
     double viscosity;
     uint8_t type = 1; // 1 = star, 2 = gas, 3 = dark matter
+    uint8_t galaxyPart = 1; // 1 = disk, 2 = bulge, 3 = halo  
 
     // Energy properties
     double internalEnergy;

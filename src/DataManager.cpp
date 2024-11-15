@@ -29,22 +29,22 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
     std::cout << timeStep << std::endl;
 
     std::string filename = this->path + std::to_string(timeStep);
-    std::string ending = ".agf";
+    std::string ending = ".ag";
     try
     {
-        ending = ".agf";
-        outputDataFormat = "AGF";
+        ending = ".ag";
+        outputDataFormat = "ag";
         std::ifstream file(filename + ending);
         if (!file)
         {
-            ending = ".agfc";
-            outputDataFormat = "AGFC";
+            ending = ".agc";
+            outputDataFormat = "agc";
             file = std::ifstream
             (filename + ending);
             if (!file)
             {
-                ending = ".agfe";
-                outputDataFormat = "AGFE";
+                ending = ".age";
+                outputDataFormat = "age";
                 file = std::ifstream
                 (filename + ending);
                 if (!file)
@@ -79,7 +79,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
 
     particles.clear();
 
-    if (outputDataFormat == "AGF")
+    if (outputDataFormat == "ag")
     {
         // Header auslesen
         AGFHeader header;
@@ -99,7 +99,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
         particles.reserve(total_particles);
 
         size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
-        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int));
+        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int) * 2 + sizeof(uint32_t));
 
         // Speicher für den Puffer allokieren
         char* buffer = reinterpret_cast<char*>(malloc(totalSize));
@@ -107,10 +107,13 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
             file.read(buffer, totalSize);
             char* ptr = buffer;
 
-            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(uint8_t)); i++) {
+            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(uint8_t) * 2 + sizeof(uint32_t)); i++) 
+            {
                 vec3 position, velocity;
                 double mass, T, visualDensity;
-                int type;
+                uint8_t type;
+                uint8_t galaxyPart;
+                uint32_t id;
 
                 memcpy(&position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
                 memcpy(&velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
@@ -118,6 +121,8 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                 memcpy(&T, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&visualDensity, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
+                memcpy(&galaxyPart, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
+                memcpy(&id, ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
 
                 auto particle = std::make_shared<Particle>();
                 particle->position = position;
@@ -126,13 +131,15 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                 particle->temperature = T;
                 particle->density = visualDensity;
                 particle->type = type;
+                particle->galaxyPart = galaxyPart;
+                particle->id = id;
 
                 particles.push_back(particle);
             }
             free(buffer);
         }
     }
-    else if (outputDataFormat == "AGFC")
+    else if (outputDataFormat == "agc")
     {
         // Header auslesen
         AGFHeader header;
@@ -182,7 +189,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
             particles.push_back(particle);
         }
     }
-    else if (outputDataFormat == "AGFE")
+    else if (outputDataFormat == "age")
     {
         // Header auslesen
         AGFHeader header;
@@ -202,7 +209,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
         particles.reserve(total_particles);
 
         size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
-        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t));
+        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t)* 2 + sizeof(uint32_t));
 
         // Speicher für den Puffer allokieren
         char* buffer = reinterpret_cast<char*>(malloc(totalSize));
@@ -215,6 +222,9 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                 vec3 position, velocity;
                 double mass, T, P, visualDensity, U;
                 uint8_t type;
+                uint8_t galaxyPart;
+                uint32_t id;
+
 
                 memcpy(&position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
                 memcpy(&velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
@@ -224,6 +234,8 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                 memcpy(&visualDensity, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&U, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
+                memcpy(&galaxyPart, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
+                memcpy(&id, ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
 
                 auto particle = std::make_shared<Particle>();
                 particle->position = position;
@@ -232,6 +244,8 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                 particle->temperature = T;
                 particle->density = visualDensity;
                 particle->type = type;
+                particle->galaxyPart = galaxyPart;
+                particle->id = id;
 
                 particles.push_back(particle);
             }
@@ -542,20 +556,28 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                         auto particle = std::make_shared<Particle>();
                         particle->id = ids[current_particle];
 
-                        // Setzen des Partikeltyps und der Masse
                         if(type == 1)  
                         {   
-                            particle->type = 3; // Halo
+                            particle->type = 3; // Dark Matter
+                            particle->galaxyPart = 3; // Halo
                             count_dark++;
                         }
-                        else if(type == 2 || type == 4 || type == 5) 
+                        if(type == 2 || type == 4 || type == 5) 
                         {
-                            particle->type = 1; // Disk, Bulge, Stars, Bndry
+                            particle->type = 1;
+                            particle->galaxyPart = 1;
                             count_star++;
                         }
-                        else if(type == 0) 
+                        if(type == 3)
+                        {
+                            particle->type = 1;
+                            particle->galaxyPart = 2;
+                            count_star++;
+                        }
+                        if(type == 0) 
                         {
                             particle->type = 2; // Gas
+                            particle->galaxyPart = 1; // Disk
                             count_gas++;
                         }
 
@@ -613,17 +635,26 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
                     // Setzen des Partikeltyps und der Masse
                     if(type == 1)  
                     {   
-                        particle->type = 3; // Halo
+                        particle->type = 3; // Dark Matter
+                        particle->galaxyPart = 3; // Halo
                         count_dark++;
                     }
-                    else if(type == 2 || type == 4 || type == 5) 
+                    if(type == 2 || type == 4 || type == 5) 
                     {
-                        particle->type = 1; // Disk, Bulge, Stars, Bndry
+                        particle->type = 1;
+                        particle->galaxyPart = 1;
                         count_star++;
                     }
-                    else if(type == 0) 
+                    if(type == 3)
+                    {
+                        particle->type = 1;
+                        particle->galaxyPart = 2;
+                        count_star++;
+                    }
+                    if(type == 0) 
                     {
                         particle->type = 2; // Gas
+                        particle->galaxyPart = 1; // Disk
                         count_gas++;
                     }
 
