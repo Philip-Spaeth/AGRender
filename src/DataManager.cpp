@@ -209,7 +209,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
         particles.reserve(total_particles);
 
         size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
-        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t)* 2 + sizeof(uint32_t));
+        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t) * 2 + sizeof(uint32_t));
 
         // Speicher für den Puffer allokieren
         char* buffer = reinterpret_cast<char*>(malloc(totalSize));
@@ -218,7 +218,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
             file.read(buffer, totalSize);
             char* ptr = buffer;
 
-            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t)); i++) {
+            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 5 + sizeof(uint8_t) * 2 + sizeof(uint32_t)); i++) {
                 vec3 position, velocity;
                 double mass, T, P, visualDensity, U;
                 uint8_t type;
