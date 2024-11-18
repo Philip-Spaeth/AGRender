@@ -285,6 +285,10 @@ void renderLive()
 
     engine.start();
 
+    
+    double distance = 0.1;
+    engine.cameraPosition = vec3(0, 0, 100* distance);
+
     double lastFrameTime = glfwGetTime(); // Zeit des letzten Frames
     double frameTime; // Zeitdauer eines Frames
 

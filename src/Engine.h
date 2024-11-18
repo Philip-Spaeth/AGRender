@@ -91,8 +91,6 @@ public:
     // only dark matter with diffrent colors
     int DARK_MATTER_WITH_DIFFRENT_COLORS = 10;
 
-    bool showBaryonicMatter = true;
-    bool showDarkMatter = true;
     int colorMode = 2;
 
     double passedTime = 0;
@@ -109,8 +107,6 @@ public:
     double cameraSpeed = 100;
     double rushSpeed = 1000;
 
-    //render Tree
-    const double theta = 0;
     void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     
     double dFromCenter = 0;

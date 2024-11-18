@@ -26,8 +26,6 @@ DataManager::~DataManager()
 
 void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>& particles, Engine* eng)
 {
-    std::cout << timeStep << std::endl;
-
     std::string filename = this->path + std::to_string(timeStep);
     std::string ending = ".ag";
     try
@@ -99,7 +97,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
         particles.reserve(total_particles);
 
         size_t totalSize = header.numParticles[0] + header.numParticles[1] + header.numParticles[2];
-        totalSize *= (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(int) * 2 + sizeof(uint32_t));
+        totalSize *= (sizeof(vec3) + sizeof(double) * 4 + sizeof(uint8_t) * 2 + sizeof(uint32_t));
 
         // Speicher für den Puffer allokieren
         char* buffer = reinterpret_cast<char*>(malloc(totalSize));
@@ -107,26 +105,25 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
             file.read(buffer, totalSize);
             char* ptr = buffer;
 
-            for (int i = 0; i < totalSize / (sizeof(vec3) * 2 + sizeof(double) * 3 + sizeof(uint8_t) * 2 + sizeof(uint32_t)); i++) 
+            for (int i = 0; i < totalSize / (sizeof(vec3) + sizeof(double) * 4 + sizeof(uint8_t) * 2 + sizeof(uint32_t)); i++) 
             {
-                vec3 position, velocity;
-                double mass, T, visualDensity;
+                vec3 position;
+                double mass, T, visualDensity, sfr;
                 uint8_t type;
                 uint8_t galaxyPart;
                 uint32_t id;
 
                 memcpy(&position, ptr, sizeof(vec3)); ptr += sizeof(vec3);
-                memcpy(&velocity, ptr, sizeof(vec3)); ptr += sizeof(vec3);
                 memcpy(&mass, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&T, ptr, sizeof(double)); ptr += sizeof(double);
                 memcpy(&visualDensity, ptr, sizeof(double)); ptr += sizeof(double);
+                memcpy(&sfr, ptr, sizeof(double)); ptr += sizeof(double); // not used yet
                 memcpy(&type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
                 memcpy(&galaxyPart, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
                 memcpy(&id, ptr, sizeof(uint32_t)); ptr += sizeof(uint32_t);
 
                 auto particle = std::make_shared<Particle>();
                 particle->position = position;
-                particle->velocity = velocity;
                 particle->mass = mass;
                 particle->temperature = T;
                 particle->density = visualDensity;
@@ -159,7 +156,7 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
         particles.reserve(total_particles);
 
         // Berechnung der Datenstrukturgröße für jedes Particle
-        size_t particleDataSize = sizeof(float) * 3 + sizeof(float) + sizeof(uint8_t);
+        size_t particleDataSize = sizeof(float) * 3 + sizeof(float) * 3 + sizeof(uint8_t)* 2;
 
         // Speicher für das Lesen der Daten allokieren
         std::vector<char> buffer(total_particles * particleDataSize);
@@ -182,9 +179,16 @@ void DataManager::loadData(int timeStep, std::vector<std::shared_ptr<Particle>>&
             float visualDensity;
             memcpy(&visualDensity, ptr, sizeof(float)); ptr += sizeof(float);
             particle->density = visualDensity;
+            float sfr;
+            memcpy(&sfr, ptr, sizeof(float)); ptr += sizeof(float);
+            //particle->sfr = sfr;
+            float T;
+            memcpy(&T, ptr, sizeof(float)); ptr += sizeof(float);
+            particle->temperature = T;
 
             // type einlesen
             memcpy(&particle->type, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
+            memcpy(&particle->galaxyPart, ptr, sizeof(uint8_t)); ptr += sizeof(uint8_t);
 
             particles.push_back(particle);
         }
