@@ -110,6 +110,12 @@ public:
     void framebuffer_size_callback(GLFWwindow* window, int width, int height);
     
     double dFromCenter = 0;
+
+    
+    //static void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+    void onFramebufferSizeChanged(int width, int height); // Instanzfunktion
+
+
 private:
     double calcDensityAv();
     double densityAv = 0;

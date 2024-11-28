@@ -20,6 +20,17 @@ inline float radians(float degrees) {
     return degrees * (M_PI / 180.0f);
 }
 
+
+void printMatrix(const mat4& matrix) {
+    const float* data = matrix.data(); // Ersetzt dies mit der richtigen Methode
+    for (int i = 0; i < 4; ++i) {
+        for (int j = 0; j < 4; ++j) {
+            std::cout << data[i * 4 + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 Engine::Engine(std::string NewDataFolder, double deltaTime, double numOfParticles, double numTimeSteps, std::vector<std::shared_ptr<Particle>>* particles) : window(nullptr), shaderProgram(0), VAO(0)
 {
     dataFolder = NewDataFolder;
@@ -51,82 +62,157 @@ Engine::~Engine() {
     }
 }
 
+void glfw_error_callback(int error, const char* description)
+{
+    std::cerr << "GLFW Error (" << error << "): " << description << std::endl;
+}
+
+void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    Engine* engine = static_cast<Engine*>(glfwGetWindowUserPointer(window));
+    if (engine)
+    {
+        engine->onFramebufferSizeChanged(width, height);
+    }
+}
+
+void Engine::onFramebufferSizeChanged(int width, int height)
+{
+    // Aktualisieren Sie den Viewport
+    glViewport(0, 0, width, height);
+}
+
+
+
+void APIENTRY MessageCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
+{
+    if (type == GL_DEBUG_TYPE_ERROR)
+    {
+        std::cerr << "GL ERROR: " << message << std::endl;
+    }
+    else
+    {
+        std::cout << "GL CALLBACK: " << message << std::endl;
+    }
+}
+
+
+
+
 bool Engine::init(double physicsFaktor) 
 {
     faktor = physicsFaktor;
+
     // GLFW initialisieren
+    glfwSetErrorCallback(glfw_error_callback);
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return false;
     }
 
-    // GLFW-Konfiguration setzen
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    // OpenGL-Version und -Profil setzen
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 1); // Passe hier an, falls nötig
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_DEPTH_BITS, 24); // Tiefenpuffer
 
-    // Ein GLFW-Fenster erstellen
-    double width = 1200;
-    double height = 800;
-    if(RenderLive == false)
-    {
-        width = 1920;
-        height = 1080;
+    // Fenster erstellen
+    int width_Window = 1200;
+    int height_Window = 800;
+    if (!RenderLive) {
+        width_Window = 1920;
+        height_Window = 1080;
     }
-    window = glfwCreateWindow(width, height, "Particle Rendering", nullptr, nullptr);
+    window = glfwCreateWindow(width_Window, height_Window, "Particle Rendering", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return false;
     }
 
-    // Fensterstile ändern, um Minimierung und Maximierung zu verhindern
-    #ifdef WIN32
-    HWND hwnd = glfwGetWin32Window(window);
-    LONG style = GetWindowLong(hwnd, GWL_STYLE);
-    style &= ~WS_MINIMIZEBOX; // Deaktiviere Minimierungsbox
-    style &= ~WS_MAXIMIZEBOX; // Deaktiviere Maximierungsbox
-    SetWindowLong(hwnd, GWL_STYLE, style);
-    #endif
-
-    // GLFW-Kontext setzen
+    // Kontext binden
     glfwMakeContextCurrent(window);
 
+
+    // Breite und Höhe des Framebuffers holen
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    // Fallback für ungültige Breite oder Höhe
+    if (width == 0) width = 800;
+    if (height == 0) height = 600;
+
+    std::cout << "Width: " << width << ", Height: " << height << std::endl;
+
+
+    // OpenGL-Version prüfen
+    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
+    std::cout << "GLSL Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
+    std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
+    std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
+
     // GLEW initialisieren
-    if (glewInit() != GLEW_OK) {
-        std::cerr << "Failed to initialize GLEW" << std::endl;
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        std::cerr << "Failed to initialize GLEW: " << glewGetErrorString(err) << std::endl;
         return false;
     }
 
-    // Shader-Programm kompilieren und verlinken
-    const char* vertexShaderSource = "#version 330 core\n"
-        "layout (location = 0) in vec3 position;\n"
-        "uniform mat4 projection;\n"
-        "uniform mat4 view;\n"
-        "uniform vec3 particlePosition; // Neue Uniform-Variable für die Partikelposition\n"
-        "void main()\n"
-        "{\n"
-        "    // Berechnen Sie die endgültige Position des Partikels, indem Sie die Partikelposition hinzufügen\n"
-        "    vec4 finalPosition = projection * view * vec4(position + particlePosition, 1.0);\n"
-        "    gl_Position = finalPosition;\n"
-        "}\0";
+    // Debug-Modus aktivieren
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(MessageCallback, nullptr);
 
-    const char* fragmentShaderSource = "#version 330 core\n"
-        "out vec4 FragColor;\n"
-        "uniform vec3 particleColor;\n"
-        "void main()\n"
-        "{\n"
-        "    FragColor = vec4(particleColor, 1.0); // Weiß\n"
-        "}\n\0";
+    // Viewport setzen
+    glViewport(0, 0, width, height);
 
-    // Erstellen des Shader-Programms und kompilieren
-    GLuint vertexShader, fragmentShader;
-    vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+
+    // Perspektivmatrix erstellen
+    mat4 projection = mat4::perspective(45.0f, (float)width / (float)height, 0.1f, 100.0f);
+
+    // Debug-Ausgabe der Matrizen
+    std::cout << "Projection Matrix:" << std::endl;
+    printMatrix(projection);
+
+
+    // Tiefentest aktivieren
+    glEnable(GL_DEPTH_TEST);
+
+    // Framebuffer prüfen
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "Framebuffer incomplete: " << framebufferStatus << std::endl;
+        return false;
+    }
+
+    // Shader erstellen und aktivieren
+    const char* vertexShaderSource = R"(
+        #version 410 core
+        uniform mat4 projection;
+        uniform mat4 view;
+        uniform vec3 particlePosition;
+        void main() {
+            gl_Position = projection * view * vec4(particlePosition, 1.0);
+            gl_PointSize = 10.0;
+        }
+    )";
+    const char* fragmentShaderSource = R"(
+        #version 410 core
+        out vec4 FragColor;
+        uniform vec3 particleColor;
+        void main() {
+            FragColor = vec4(particleColor, 1.0);
+        }
+    )";
+
+    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    glShaderSource(vertexShader, 1, &vertexShaderSource, nullptr);
     glCompileShader(vertexShader);
     checkShaderCompileStatus(vertexShader, "VERTEX");
 
-    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, nullptr);
     glCompileShader(fragmentShader);
     checkShaderCompileStatus(fragmentShader, "FRAGMENT");
 
@@ -135,71 +221,76 @@ bool Engine::init(double physicsFaktor)
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
     checkShaderLinkStatus(shaderProgram);
-    if (RenderLive)
-    {
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // Shader aktivieren
+    glUseProgram(shaderProgram);
+
+    // VAO und VBO erstellen
+    glGenVertexArrays(1, &VAO);
+    glBindVertexArray(VAO);
+
+    GLuint VBO;
+    glGenBuffers(1, &VBO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_STATIC_DRAW);
+
+    glBindVertexArray(0);
+
+    // Uniform-Locations überprüfen
+    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
+    if (projectionLoc == -1 || viewLoc == -1) {
+        std::cerr << "Projection/View Uniforms not found!" << std::endl;
+        return false;
     }
-    else
-    {
-		glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-	}
+
+    // Cursor-Modus setzen
+    if (RenderLive) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    } else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+    }
 
     return true;
 }
 
-void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height)
+
+
+
+
+/* void Engine::framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
     // Stellen Sie sicher, dass die Ansichtsportgröße dem neuen Fenster entspricht
     glViewport(0, 0, width, height);
-}
+} */
 
 void Engine::start()
 {
-    int size = numOfParticles;
-    if (size > maxNumberOfParticles)
-    {
-        size = maxNumberOfParticles;
-	}
-    
-    // Hier VBO und VAO erstellen und konfigurieren
-    GLuint VBO;
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // Entfernen Sie die VBO-Erstellung und -Konfiguration, da wir keine Vertex-Attribute verwenden
 
-    // Vektor zur Speicherung der Partikelpositionen vorbereiten
-    std::vector<vec4> positions;
-    positions.reserve(particles->size());
-    for (const auto& particle : *particles)
-    {
-        positions.emplace_back(particle->position.x, particle->position.y, particle->position.z, 1.0f);
-    }
-
-    // Stelle sicher, dass du die korrekte Größe und den korrekten Typ für die Daten verwendest
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vec4) * positions.size(), positions.data(), GL_STATIC_DRAW);
-
-    // Erstellen des Vertex Array Objects (VAO)
+    // Erstellen und Binden eines leeren VAO
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
 
-    // Konfigurieren des VAO für das VBO
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    //place the BGstars in the background
+    // Wenn Sie Hintergrundsterne haben, können Sie diesen Code beibehalten
     if (BGstars)
     {
         for (int i = 0; i < amountOfStars; i++)
         {
             double x = random(-1e14, 1e14);
-			double y = random(-1e14, 1e14);
-			double z = random(-1e14, 1e14);
+            double y = random(-1e14, 1e14);
+            double z = random(-1e14, 1e14);
             double size = random(0.1, 2);
-			bgStars.push_back(vec4(x, y, z, size));
-		}   
+            bgStars.push_back(vec4(x, y, z, size));
+        }
     }
 
     std::cout << "Data loaded" << std::endl;
 }
+
 
 void Engine::initializePBO() {
     if (pbo == 0) {
@@ -386,6 +477,146 @@ vec3 jetColorMap(double value)
 
 
 
+
+mat4 perspective(float fovY, float aspect, float zNear, float zFar) {
+    float tanHalfFovy = tan(fovY * M_PI / 180.0f / 2.0f);
+
+    mat4 result; // Standardkonstruktor verwenden
+    float mat[4][4] = { 0.0f }; // Temporäres Array für die Matrixdaten
+
+    mat[0][0] = 1.0f / (aspect * tanHalfFovy);
+    mat[1][1] = 1.0f / tanHalfFovy;
+    mat[2][2] = -(zFar + zNear) / (zFar - zNear);
+    mat[2][3] = -1.0f;
+    mat[3][2] = -(2.0f * zFar * zNear) / (zFar - zNear);
+
+    result = mat4(mat); // Setze die Matrixdaten
+    return result;
+}
+
+
+
+
+
+
+/* void Engine::renderParticles()
+{
+    GLenum error;
+
+    // Framebuffer binden und Bildschirm löschen
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
+        std::cerr << "Framebuffer incomplete: " << framebufferStatus << std::endl;
+        return;
+    }
+
+    glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Hintergrundfarbe setzen
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glEnable(GL_DEPTH_TEST);
+
+    // Shader-Programm verwenden
+    glUseProgram(shaderProgram);
+
+    // Projektions- und Sichtmatrix erstellen
+    //mat4 projection = mat4::perspective(45.0f, (float)width / (float)height, 0.1f, cameraViewDistance);
+    mat4 projection = mat4::perspective(45.0f, (float)width / (float)height, 0.1f, 100.0f);
+    std::cout << "Width: " << width << ", Height: " << height << std::endl;
+    mat4 viewMatrix = mat4::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
+
+    // Debug: Ausgabe der Matrizen
+    std::cout << "Projection Matrix:" << std::endl;
+    printMatrix(projection);
+    std::cout << "View Matrix:" << std::endl;
+    printMatrix(viewMatrix);
+
+
+    // Matrizen im Shader setzen
+    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    if (projectionLoc != -1) {
+        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection.data());
+    }
+
+    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
+    if (viewLoc != -1) {
+        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.data());
+    }
+
+    // VAO binden
+    glBindVertexArray(VAO);
+
+    glPointSize(10.0f);
+    glBegin(GL_POINTS);
+    glVertex3f(0.0f, 0.0f, -2.0f); // Punkt sichtbar in der Mitte des Bildschirms
+    glEnd();
+
+
+
+    // Hintergrundsterne rendern
+    if (BGstars)
+    {
+        for (const auto& star : bgStars)
+        {
+            glPointSize(static_cast<GLfloat>(star.w));
+
+            GLfloat posArray[3] = {
+                static_cast<GLfloat>(star.x),
+                static_cast<GLfloat>(star.y),
+                static_cast<GLfloat>(star.z)
+            };
+            glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, posArray);
+
+            GLfloat colorArray[3] = { 1.0f, 1.0f, 1.0f }; // Weiß
+            glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
+
+            glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+
+    // Partikel rendern
+    glPointSize(5.0f);
+    for (const auto& particle : *particles)
+    {
+
+        // Debug-Ausgabe: Position der Partikel prüfen
+        std::cout << "Particle Position: (" 
+              << particle->position.x << ", " 
+              << particle->position.y << ", " 
+              << particle->position.z << ")" << std::endl;
+
+        vec3 color = vec3(1.0, 1.0, 1.0); // Standardfarbe Weiß
+        if (particle->galaxyPart == 1)
+            color = vec3(1.0, 0.0, 0.0); // Rot
+        else if (particle->galaxyPart == 2)
+            color = vec3(0.0, 1.0, 0.0); // Grün
+        else if (particle->galaxyPart == 3)
+            color = vec3(0.0, 0.0, 1.0); // Blau
+
+        GLfloat scaledPosArray[3] = {
+            static_cast<GLfloat>(particle->position.x * globalScale),
+            static_cast<GLfloat>(particle->position.y * globalScale),
+            static_cast<GLfloat>(particle->position.z * globalScale)
+        };
+        glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, scaledPosArray);
+
+        GLfloat colorArray[3] = {
+            static_cast<GLfloat>(color.x),
+            static_cast<GLfloat>(color.y),
+            static_cast<GLfloat>(color.z)
+        };
+        glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
+
+        glDrawArrays(GL_POINTS, 0, 1);
+    }
+
+    glBindVertexArray(0);
+
+} */
+
+
+
 void Engine::renderParticles()
 {
     // Binden des Framebuffers
@@ -510,6 +741,8 @@ void Engine::renderParticles()
     // VAO lösen
     glBindVertexArray(0);
 }
+
+
 
 void Engine::processInput()
 {
