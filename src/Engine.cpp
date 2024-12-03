@@ -475,9 +475,6 @@ vec3 jetColorMap(double value)
     return vec3(r, g, b);
 }
 
-
-
-
 mat4 perspective(float fovY, float aspect, float zNear, float zFar) {
     float tanHalfFovy = tan(fovY * M_PI / 180.0f / 2.0f);
 
@@ -493,129 +490,6 @@ mat4 perspective(float fovY, float aspect, float zNear, float zFar) {
     result = mat4(mat); // Setze die Matrixdaten
     return result;
 }
-
-
-
-
-
-
-/* void Engine::renderParticles()
-{
-    GLenum error;
-
-    // Framebuffer binden und Bildschirm löschen
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    GLenum framebufferStatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (framebufferStatus != GL_FRAMEBUFFER_COMPLETE) {
-        std::cerr << "Framebuffer incomplete: " << framebufferStatus << std::endl;
-        return;
-    }
-
-    glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Hintergrundfarbe setzen
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    glEnable(GL_DEPTH_TEST);
-
-    // Shader-Programm verwenden
-    glUseProgram(shaderProgram);
-
-    // Projektions- und Sichtmatrix erstellen
-    //mat4 projection = mat4::perspective(45.0f, (float)width / (float)height, 0.1f, cameraViewDistance);
-    mat4 projection = mat4::perspective(45.0f, (float)width / (float)height, 0.1f, 100.0f);
-    std::cout << "Width: " << width << ", Height: " << height << std::endl;
-    mat4 viewMatrix = mat4::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
-
-    // Debug: Ausgabe der Matrizen
-    std::cout << "Projection Matrix:" << std::endl;
-    printMatrix(projection);
-    std::cout << "View Matrix:" << std::endl;
-    printMatrix(viewMatrix);
-
-
-    // Matrizen im Shader setzen
-    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    if (projectionLoc != -1) {
-        glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection.data());
-    }
-
-    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-    if (viewLoc != -1) {
-        glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.data());
-    }
-
-    // VAO binden
-    glBindVertexArray(VAO);
-
-    glPointSize(10.0f);
-    glBegin(GL_POINTS);
-    glVertex3f(0.0f, 0.0f, -2.0f); // Punkt sichtbar in der Mitte des Bildschirms
-    glEnd();
-
-
-
-    // Hintergrundsterne rendern
-    if (BGstars)
-    {
-        for (const auto& star : bgStars)
-        {
-            glPointSize(static_cast<GLfloat>(star.w));
-
-            GLfloat posArray[3] = {
-                static_cast<GLfloat>(star.x),
-                static_cast<GLfloat>(star.y),
-                static_cast<GLfloat>(star.z)
-            };
-            glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, posArray);
-
-            GLfloat colorArray[3] = { 1.0f, 1.0f, 1.0f }; // Weiß
-            glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
-
-            glDrawArrays(GL_POINTS, 0, 1);
-        }
-    }
-
-
-    // Partikel rendern
-    glPointSize(5.0f);
-    for (const auto& particle : *particles)
-    {
-
-        // Debug-Ausgabe: Position der Partikel prüfen
-        std::cout << "Particle Position: (" 
-              << particle->position.x << ", " 
-              << particle->position.y << ", " 
-              << particle->position.z << ")" << std::endl;
-
-        vec3 color = vec3(1.0, 1.0, 1.0); // Standardfarbe Weiß
-        if (particle->galaxyPart == 1)
-            color = vec3(1.0, 0.0, 0.0); // Rot
-        else if (particle->galaxyPart == 2)
-            color = vec3(0.0, 1.0, 0.0); // Grün
-        else if (particle->galaxyPart == 3)
-            color = vec3(0.0, 0.0, 1.0); // Blau
-
-        GLfloat scaledPosArray[3] = {
-            static_cast<GLfloat>(particle->position.x * globalScale),
-            static_cast<GLfloat>(particle->position.y * globalScale),
-            static_cast<GLfloat>(particle->position.z * globalScale)
-        };
-        glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, scaledPosArray);
-
-        GLfloat colorArray[3] = {
-            static_cast<GLfloat>(color.x),
-            static_cast<GLfloat>(color.y),
-            static_cast<GLfloat>(color.z)
-        };
-        glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
-
-        glDrawArrays(GL_POINTS, 0, 1);
-    }
-
-    glBindVertexArray(0);
-
-} */
-
-
 
 void Engine::renderParticles()
 {
@@ -670,15 +544,15 @@ void Engine::renderParticles()
 
     for (const auto& particle : *particles)
     {
-        if(particle->galaxyPart == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
+        if(particle->type == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
         {
             continue;
         } 
-        if (particle->galaxyPart == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
+        if (particle->type == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
         {
             continue;
         }
-        if(particle->galaxyPart == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
+        if(particle->type == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
         {
             continue;
         }
@@ -706,15 +580,15 @@ void Engine::renderParticles()
         }
         else
         {
-            if(particle->galaxyPart == 1)
+            if(particle->type == 1)
             {
                 color = vec3(1, 0, 0);
             }
-            if(particle->galaxyPart == 2)
+            if(particle->type == 2)
             {
                 color = vec3(0, 1, 0);
             }
-            if(particle->galaxyPart == 3)
+            if(particle->type == 3)
             {
                 color = vec3(0, 0, 1);
             }
