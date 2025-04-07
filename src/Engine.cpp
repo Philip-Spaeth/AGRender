@@ -16,6 +16,148 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+vec3 Engine::agColorMap(Particle* particle ,double densityAV)
+{
+    BGstars = true;
+    vec3 color;
+
+    if (densityAV != 0) 
+    {
+        color.x = particle->density * 10 / densityAV;
+        color.y = 0;
+        color.z = densityAV / particle->density;
+
+        double plus = 0;
+        if(particle->density * 100 / densityAV > 1) plus = particle->density / densityAV / 10;
+
+        color.x += plus * 10 + 0.5;
+        color.y += plus;
+        color.z += plus;
+    }
+    return color;
+}
+
+
+void Engine::renderParticles()
+{
+    // Binden des Framebuffers
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Deaktivieren Sie den Tiefentest und das Z-Buffering
+    glDisable(GL_DEPTH_TEST);
+    glDepthMask(GL_FALSE);
+
+    // In der renderParticles-Funktion
+    glUseProgram(shaderProgram);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
+
+    // Erstellen der Projektionsmatrix und Sichtmatrix
+    mat4 projection = mat4::perspective(45.0f, 800.0f / 600.0f, 0.1f, cameraViewDistance);
+    mat4 viewMatrix = mat4::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
+
+    // Setzen der Matrizen im Shader
+    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
+    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
+
+    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection.data());
+    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.data());
+
+    // Vertex Array Object (VAO) binden
+    glBindVertexArray(VAO);
+
+    if (BGstars)
+    {
+        //render the background bgStars
+        for (int i = 0; i < amountOfStars; i++)
+        {
+            glPointSize(bgStars[i].size);
+
+            // Setzen der Position im Shader
+            vec3 pos(bgStars[i].position);
+            float posArray[3];
+            pos.toFloatArray(posArray);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, posArray);
+
+            // Setzen der Farbe im Shader
+            vec3 color(bgStars[i].color);
+            float colorArray[3];
+            color.toFloatArray(colorArray);
+            float starAlpha = bgStars[i].alpha;  // Transparenz aus Engine-Variable
+            glUniform1f(glGetUniformLocation(shaderProgram, "alpha"), starAlpha);
+            glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
+
+            // Zeichnen des Punktes
+            glDrawArrays(GL_POINTS, 0, 1);
+        }
+    }
+
+    for (const auto& particle : *particles)
+    {
+        if(particle->type == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
+        {
+            continue;
+        } 
+        if (particle->type == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
+        {
+            continue;
+        }
+        if(particle->type == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
+        {
+            continue;
+        }
+
+        double red = 1;
+        double green = 1;
+        double blue = 1;
+
+        vec3 color = vec3(red, green, blue);
+        if(renderMode <= 5)
+        {
+            color = agColorMap(particle.get(), densityAv);
+        }
+        else
+        {
+            if(particle->type == 1)
+            {
+                color = vec3(1, 0, 0);
+            }
+            if(particle->type == 2)
+            {
+                color = vec3(0, 1, 0);
+            }
+            if(particle->type == 3)
+            {
+                color = vec3(0, 0, 1);
+            }
+        }
+
+        vec3 scaledPosition = particle->position * globalScale;
+
+        // Setzen Position im Shader
+        float scaledPosArray[3];
+        scaledPosition.toFloatArray(scaledPosArray);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, scaledPosArray);
+
+        // Setzen Farbe im Shader
+        float colorArray[3];
+        color.toFloatArray(colorArray);
+        float alpha = particleAlpha;  // Transparenz aus Engine-Variable
+        glUniform1f(glGetUniformLocation(shaderProgram, "alpha"), alpha);
+        glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
+        
+        glPointSize(0.5f); // Setzen der Punktgröße auf 5 Pixel
+
+        // Zeichnen Punkt
+        glDrawArrays(GL_POINTS, 0, 1);
+    }
+
+    // VAO lösen
+    glBindVertexArray(0);
+}
+
 inline float radians(float degrees) {
     return degrees * (M_PI / 180.0f);
 }
@@ -201,8 +343,9 @@ bool Engine::init(double physicsFaktor)
         #version 410 core
         out vec4 FragColor;
         uniform vec3 particleColor;
+        uniform float alpha;  // <- NEU
         void main() {
-            FragColor = vec4(particleColor, 1.0);
+            FragColor = vec4(particleColor, alpha);
         }
     )";
 
@@ -227,6 +370,9 @@ bool Engine::init(double physicsFaktor)
 
     // Shader aktivieren
     glUseProgram(shaderProgram);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+
 
     // VAO und VBO erstellen
     glGenVertexArrays(1, &VAO);
@@ -283,8 +429,18 @@ void Engine::start()
             double x = random(-1e14, 1e14);
             double y = random(-1e14, 1e14);
             double z = random(-1e14, 1e14);
-            double size = random(0.1, 2);
-            bgStars.push_back(vec4(x, y, z, size));
+            double size = random(0.01, 0.5);
+            float r = random(0.8, 1.0);
+            float g = random(0.8, 1.0);
+            float b = random(0.8, 1.0);
+
+            // etwas mehr Blau oder Gelb hinzufügen
+            if (random(0, 1) < 0.5) b += 0.2; // bläulicher Stern
+            else r += 0.1; // rötlicher Stern
+            float starAlpha = random(0.01f, 0.7f);
+
+            vec3 color(r, g, b);
+            bgStars.push_back({ vec3(x, y, z), size, color, starAlpha });
         }
     }
 
@@ -489,131 +645,6 @@ mat4 perspective(float fovY, float aspect, float zNear, float zFar) {
 
     result = mat4(mat); // Setze die Matrixdaten
     return result;
-}
-
-void Engine::renderParticles()
-{
-    // Binden des Framebuffers
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // Deaktivieren Sie den Tiefentest und das Z-Buffering
-    glDisable(GL_DEPTH_TEST);
-    glDepthMask(GL_FALSE);
-
-    // In der renderParticles-Funktion
-    glUseProgram(shaderProgram);
-
-    // Erstellen der Projektionsmatrix und Sichtmatrix
-    mat4 projection = mat4::perspective(45.0f, 800.0f / 600.0f, 0.1f, cameraViewDistance);
-    mat4 viewMatrix = mat4::lookAt(cameraPosition, cameraPosition + cameraFront, cameraUp);
-
-    // Setzen der Matrizen im Shader
-    GLuint projectionLoc = glGetUniformLocation(shaderProgram, "projection");
-    GLuint viewLoc = glGetUniformLocation(shaderProgram, "view");
-
-    glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, projection.data());
-    glUniformMatrix4fv(viewLoc, 1, GL_FALSE, viewMatrix.data());
-
-    // Vertex Array Object (VAO) binden
-    glBindVertexArray(VAO);
-
-    if (BGstars)
-    {
-        //render the background bgStars
-        for (int i = 0; i < amountOfStars; i++)
-        {
-            glPointSize(bgStars[i].w);
-
-            // Setzen der Position im Shader
-            vec3 pos(bgStars[i].x, bgStars[i].y, bgStars[i].z);
-            float posArray[3];
-            pos.toFloatArray(posArray);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, posArray);
-
-            // Setzen der Farbe im Shader
-            vec3 color(1.0f, 1.0f, 1.0f);
-            float colorArray[3];
-            color.toFloatArray(colorArray);
-            glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
-
-            // Zeichnen des Punktes
-            glDrawArrays(GL_POINTS, 0, 1);
-        }
-    }
-
-    for (const auto& particle : *particles)
-    {
-        if(particle->type == 3 && (renderMode == 2 || renderMode == 3 || renderMode == 4 || renderMode == 7 || renderMode == 8 || renderMode == 9))
-        {
-            continue;
-        } 
-        if (particle->type == 2 && (renderMode == 3 || renderMode == 5 || renderMode == 8 || renderMode == 10))
-        {
-            continue;
-        }
-        if(particle->type == 1 && (renderMode == 5 || renderMode == 4 || renderMode == 9 || renderMode == 10))
-        {
-            continue;
-        }
-
-        double red = 1;
-        double green = 1;
-        double blue = 1;
-
-        vec3 color = vec3(red, green, blue);
-        if(renderMode <= 5)
-        {
-            if (densityAv != 0) 
-            {
-                color.x = particle->density * 10 / densityAv;
-                color.y = 0;
-                color.z = densityAv / particle->density;
-
-                double plus = 0;
-                if(particle->density * 100 / densityAv > 1) plus = particle->density / densityAv / 10;
-
-                color.x += plus * 10;
-                color.y += plus;
-                color.z += plus;
-            }
-        }
-        else
-        {
-            if(particle->type == 1)
-            {
-                color = vec3(1, 0, 0);
-            }
-            if(particle->type == 2)
-            {
-                color = vec3(0, 1, 0);
-            }
-            if(particle->type == 3)
-            {
-                color = vec3(0, 0, 1);
-            }
-        }
-
-        vec3 scaledPosition = particle->position * globalScale;
-
-        // Setzen Position im Shader
-        float scaledPosArray[3];
-        scaledPosition.toFloatArray(scaledPosArray);
-        glUniform3fv(glGetUniformLocation(shaderProgram, "particlePosition"), 1, scaledPosArray);
-
-        // Setzen Farbe im Shader
-        float colorArray[3];
-        color.toFloatArray(colorArray);
-        glUniform3fv(glGetUniformLocation(shaderProgram, "particleColor"), 1, colorArray);
-
-        glPointSize(0.5f); // Setzen der Punktgröße auf 5 Pixel
-
-        // Zeichnen Punkt
-        glDrawArrays(GL_POINTS, 0, 1);
-    }
-
-    // VAO lösen
-    glBindVertexArray(0);
 }
 
 

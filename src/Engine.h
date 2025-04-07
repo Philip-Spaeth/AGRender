@@ -26,6 +26,8 @@ public:
     Engine(std::string dataFolder, double deltaTime, double numOfParticles, double numTimeSteps, std::vector<std::shared_ptr<Particle>>* particles);
     ~Engine();
 
+    float particleAlpha = 0.3f;
+
     double deltaTime;
     double numOfParticles;
     double numTimeSteps;
@@ -33,7 +35,8 @@ public:
     std::vector<std::shared_ptr<Particle>>* particles;
 
     std::string dataFolder;
-
+    vec3 agColorMap(Particle* particle ,double densityAV);
+    vec3 jetColorMap(Particle* particle ,double densityAV);
     bool init(double physicsFaktor);
     void start();
     void update(int index);
@@ -117,12 +120,19 @@ public:
 
 
 private:
+    struct bgStar
+    {
+        vec3 position;
+        double size;
+        vec3 color;
+        double alpha;
+    };
     double calcDensityAv();
     double densityAv = 0;
     int oldIndex = -1;
     bool BGstars = true;
-    int amountOfStars = 1000;
-    std::vector<vec4> bgStars;
+    int amountOfStars = 5000;
+    std::vector<bgStar> bgStars;
 
     bool tracks = false;
     double cameraViewDistance = 1e15;
