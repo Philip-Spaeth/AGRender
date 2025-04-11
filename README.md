@@ -73,7 +73,14 @@ AGRender supports a wide range of astrophysical simulation formats, ensuring sea
 
 **Example renders:**
 
-*(Insert images here: e.g., `Galaxy_Collision.png`, `Star_Cluster_Temperature.png`, `Flythrough_Frame_1200.png`)*
+Milky Way Andromeda merge rendered with our photorealistic galactic colormap:
+![Unbenannt](https://github.com/user-attachments/assets/3b3122b5-c628-4eeb-bcbe-d90348ee1afd)
+
+Dark Matter halo merge rendered with the viridris colormap:
+
+Stars rendered with the inferno colormap:
+
+Interstellar gas rendered with the jet colormap:
 
 ---
 
