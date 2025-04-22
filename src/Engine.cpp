@@ -23,16 +23,16 @@ vec3 Engine::agColorMap(Particle* particle ,double densityAV)
 
     if (densityAV != 0) 
     {
-        color.x = particle->density * 10 / densityAV;
+        color.x = particle->density / densityAV;
         color.y = 0;
-        color.z = densityAV / particle->density;
+        color.z = densityAV * 2 / particle->density;
 
         double plus = 0;
         if(particle->density * 100 / densityAV > 1) plus = particle->density / densityAV / 10;
-
-        color.x += plus * 10 + 0.5;
-        color.y += plus;
-        color.z += plus;
+        if(particle->type == 2) plus *= 4;
+        color.x += plus * 10 + 0.5 - 0.3;
+        color.y += plus - 0.2;
+        color.z += plus + 0.2;
     }
     return color;
 }
@@ -614,8 +614,10 @@ double Engine::calcDensityAv()
 {
     //calc the middle value of the particles densities
     double densityAv = 0;
+    int c = 0;
     for (const auto& particle : *particles)
     {
+        c++;
         densityAv += particle->density;
     }
     densityAv = densityAv / particles->size();

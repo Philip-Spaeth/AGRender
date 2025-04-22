@@ -26,7 +26,7 @@ public:
     Engine(std::string dataFolder, double deltaTime, double numOfParticles, double numTimeSteps, std::vector<std::shared_ptr<Particle>>* particles);
     ~Engine();
 
-    float particleAlpha = 0.3f;
+    float particleAlpha = 0.2f;
 
     double deltaTime;
     double numOfParticles;
